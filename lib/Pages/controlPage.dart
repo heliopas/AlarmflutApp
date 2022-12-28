@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:ffi';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
@@ -18,8 +19,8 @@ class ControlPage extends StatefulWidget {
 }
 
 class _ControlPage extends State<ControlPage> {
-  final MqttServerClient client =
-      MqttServerClient('a5xv18ahpzevq-ats.iot.us-west-2.amazonaws.com', '');
+  final MqttServerClient client = MqttServerClient(
+      'a5xv18ahpzevq-ats.iot.us-west-2.amazonaws.com', 'esp32poltst');
 
   bool get isConnected => true;
 
@@ -70,7 +71,9 @@ class _ControlPage extends State<ControlPage> {
               height: 5,
             ),
             ElevatedButton(
-              onPressed: () {},
+              onPressed: () {
+                setRele1();
+              },
               child: Text('Ligar lâmpada 1'),
             ),
             SizedBox(
@@ -93,6 +96,15 @@ class _ControlPage extends State<ControlPage> {
             ElevatedButton(
               onPressed: () {},
               child: Text('Ligar lâmpada 4'),
+            ),
+            SizedBox(
+              height: 5,
+            ),
+            ElevatedButton(
+              onPressed: () {
+                receiveMessage();
+              },
+              child: Text('Print AWS MESSAGE'),
             ),
           ],
         ),
@@ -132,7 +144,7 @@ class _ControlPage extends State<ControlPage> {
     ));
     progressDialog.setMessage(Text("Please wait until disconect from AWS"));
     progressDialog.setTitle(Text("Loading"));
-    progressDialog.show();
+    //progressDialog.show();
 
     if (client.connectionStatus!.state == MqttConnectionState.connected) {
       client.disconnect();
@@ -154,8 +166,8 @@ class _ControlPage extends State<ControlPage> {
 
     client.securityContext = context;
     client.logging(on: true);
-    client.keepAlivePeriod = 20;
-    client.connectTimeoutPeriod = 2000;
+    client.keepAlivePeriod = 200;
+    client.connectTimeoutPeriod = 5000;
     client.port = 8883;
     client.secure = true;
     client.onConnected = onConnected;
@@ -186,22 +198,36 @@ class _ControlPage extends State<ControlPage> {
       client.disconnect();
       return false;
     }
+  }
 
-/*     const pub = 'esp32/pub';
-    const sub = 'esp32/sub';
+  void setRele1() {
+    final MqttClientPayloadBuilder builder = MqttClientPayloadBuilder();
+    builder.addString(json.encode({
+      "message": "--------Hello from AWS IoT console---------",
+    }));
+    client.publishMessage('esp32/pub', MqttQos.atLeastOnce, builder.payload!);
 
-    //client.subscribe(pub, MqttQos.atMostOnce);
+    print('\nsend hello\n');
+  }
 
-    final builder = MqttClientPayloadBuilder();
-    builder.addString('Hello AWS');
+  void receiveMessage() {
+    if (client.connectionStatus!.state == MqttConnectionState.connected) {
+      const pubTopic = 'esp32/pub';
+      final builder = MqttClientPayloadBuilder();
 
-    try {
-      client.publishMessage(pub, MqttQos.exactlyOnce, builder.payload!);
-    } on InvalidMessageException catch (e) {
-      print('EXAMPLE::client exception - $e');
-      client.disconnect();
+      print('Message from AWS');
+      client.subscribe(pubTopic, MqttQos.exactlyOnce);
+
+      print('Publishing topic');
+      client.publishMessage(pubTopic, MqttQos.atMostOnce, builder.payload!);
+
+      String decodeMessage = Utf8Decoder().convert(builder.payload!);
+      print("Message decoded: $decodeMessage");
+
+      final receiveMSG = List<MqttReceivedMessage<MqttMessage?>>;
+
+      print(receiveMSG);
     }
-    return true; */
   }
 
   void setStatus(String content) {
